@@ -1,54 +1,68 @@
-"use client"
+"use client";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { storage } from "@/lib/storage"
-import { useState, useEffect } from "react"
-import { GeneratedImage } from "@/types"
-import Image from "next/image"
-import { Download, Trash2, Edit } from "lucide-react"
-import { Button } from "./ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { storage } from "@/lib/storage";
+import { useState, useEffect } from "react";
+import { GeneratedImage } from "@/types";
+import Image from "next/image";
+import { Download, Trash2, Edit } from "lucide-react";
+import { Button } from "./ui/button";
 
 interface HistoryDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onEditImage: (imageUrl: string) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onEditImage: (imageUrl: string) => void;
 }
 
-export function HistoryDialog({ open, onOpenChange, onEditImage }: HistoryDialogProps) {
-  const [history, setHistory] = useState<GeneratedImage[]>([])
+export function HistoryDialog({
+  open,
+  onOpenChange,
+  onEditImage,
+}: HistoryDialogProps) {
+  const [history, setHistory] = useState<GeneratedImage[]>([]);
 
   useEffect(() => {
-    if (open) {
-      setHistory(storage.getHistory())
-    }
-  }, [open])
+    const loadHistory = async () => {
+      if (open) {
+        const historyData = await storage.getHistory();
+        setHistory(historyData);
+      }
+    };
+    loadHistory();
+  }, [open]);
 
-  const handleDelete = (id: string) => {
-    storage.removeFromHistory(id)
-    setHistory(storage.getHistory())
-  }
+  const handleDelete = async (id: string) => {
+    await storage.removeFromHistory(id);
+    const updatedHistory = await storage.getHistory();
+    setHistory(updatedHistory);
+  };
 
   const handleDownload = async (url: string) => {
     try {
-      const response = await fetch(url)
-      const blob = await response.blob()
-      const blobUrl = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = 'generated-image.png'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(blobUrl)
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = "generated-image.png";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
-      console.error('下载失败:', error)
+      console.error("下载失败:", error);
     }
-  }
+  };
 
   const handleEdit = (item: GeneratedImage) => {
-    onEditImage(item.url)
-    onOpenChange(false)
-  }
+    onEditImage(item.url);
+    onOpenChange(false);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -57,9 +71,7 @@ export function HistoryDialog({ open, onOpenChange, onEditImage }: HistoryDialog
           <DialogTitle>生成历史</DialogTitle>
         </DialogHeader>
         {history.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            暂无生成记录
-          </div>
+          <div className="text-center py-8 text-gray-500">暂无生成记录</div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4">
             {history.map((item) => (
@@ -110,5 +122,5 @@ export function HistoryDialog({ open, onOpenChange, onEditImage }: HistoryDialog
         )}
       </DialogContent>
     </Dialog>
-  )
-} 
+  );
+}

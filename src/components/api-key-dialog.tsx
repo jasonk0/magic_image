@@ -1,60 +1,68 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { useState, useEffect } from "react"
-import { storage } from "@/lib/storage"
-import { Eye, EyeOff } from "lucide-react"
-import { toast } from "sonner"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useState, useEffect } from "react";
+import { storage } from "@/lib/storage";
+import { Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
 
 interface ApiKeyDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
-  const [key, setKey] = useState("")
-  const [baseUrl, setBaseUrl] = useState("")
-  const [showKey, setShowKey] = useState(false)
-  const [errors, setErrors] = useState<{ key?: string; baseUrl?: string }>({})
+  const [key, setKey] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [errors, setErrors] = useState<{ key?: string; baseUrl?: string }>({});
 
   useEffect(() => {
-    const config = storage.getApiConfig()
-    if (config) {
-      setKey(config.key)
-      setBaseUrl(config.baseUrl)
-    }
-  }, [open])
+    const loadConfig = async () => {
+      const config = await storage.getApiConfig();
+      if (config) {
+        setKey(config.key);
+        setBaseUrl(config.baseUrl);
+      }
+    };
+    loadConfig();
+  }, [open]);
 
   const validateInputs = () => {
-    const newErrors: { key?: string; baseUrl?: string } = {}
+    const newErrors: { key?: string; baseUrl?: string } = {};
     if (!key.trim()) {
-      newErrors.key = "请输入 API Key"
+      newErrors.key = "请输入 API Key";
     }
     if (!baseUrl.trim()) {
-      newErrors.baseUrl = "请输入API基础地址"
+      newErrors.baseUrl = "请输入API基础地址";
     }
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-  const handleSave = () => {
-    if (!validateInputs()) return
-    
+  const handleSave = async () => {
+    if (!validateInputs()) return;
+
     // 确保使用HTTPS协议
-    let secureUrl = baseUrl.trim()
-    
+    let secureUrl = baseUrl.trim();
+
     // 检查URL是否以#结尾（特殊处理标记）
-    const endsWithHash = secureUrl.endsWith('#')
-    
-    if (secureUrl.startsWith('http:') && !endsWithHash) {
-      secureUrl = secureUrl.replace('http:', 'https:')
-      toast.info("为确保安全，已自动将HTTP协议转换为HTTPS")
+    const endsWithHash = secureUrl.endsWith("#");
+
+    if (secureUrl.startsWith("http:") && !endsWithHash) {
+      secureUrl = secureUrl.replace("http:", "https:");
+      toast.info("为确保安全，已自动将HTTP协议转换为HTTPS");
     }
-    
-    storage.setApiConfig(key.trim(), secureUrl)
-    toast.success("保存成功")
-    onOpenChange(false)
-  }
+
+    await storage.setApiConfig(key.trim(), secureUrl);
+    toast.success("保存成功");
+    onOpenChange(false);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -69,8 +77,8 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
                 placeholder="请输入API基础地址，如需使用完整URL，请在末尾添加#符号"
                 value={baseUrl}
                 onChange={(e) => {
-                  setBaseUrl(e.target.value)
-                  setErrors(prev => ({ ...prev, baseUrl: undefined }))
+                  setBaseUrl(e.target.value);
+                  setErrors((prev) => ({ ...prev, baseUrl: undefined }));
                 }}
                 className={errors.baseUrl ? "border-red-500" : ""}
               />
@@ -92,8 +100,8 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
                 placeholder="请输入您的 API Key"
                 value={key}
                 onChange={(e) => {
-                  setKey(e.target.value)
-                  setErrors(prev => ({ ...prev, key: undefined }))
+                  setKey(e.target.value);
+                  setErrors((prev) => ({ ...prev, key: undefined }));
                 }}
                 className={`pr-10 ${errors.key ? "border-red-500" : ""}`}
               />
@@ -103,7 +111,11 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
                 className="absolute right-0 top-0 h-full px-3"
                 onClick={() => setShowKey(!showKey)}
               >
-                {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showKey ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </Button>
               {errors.key && (
                 <p className="text-sm text-red-500 mt-1">{errors.key}</p>
@@ -122,5 +134,5 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
         </div>
       </DialogContent>
     </Dialog>
-  )
-} 
+  );
+}

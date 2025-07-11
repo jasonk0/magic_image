@@ -1,158 +1,203 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Info, Download, Edit, Settings, History, Image as ImageIcon, MessageSquare, Upload, ChevronLeft, ChevronRight, Maximize2, Github } from "lucide-react"
-import Image from "next/image"
-import { ApiKeyDialog } from "@/components/api-key-dialog"
-import { HistoryDialog } from "@/components/history-dialog"
-import { useState, useRef, useEffect, Suspense } from "react"
-import { api } from "@/lib/api"
-import { GenerationModel, AspectRatio, ImageSize, DalleImageData, ModelType } from "@/types"
-import { storage } from "@/lib/storage"
-import { v4 as uuidv4 } from 'uuid'
-import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { MaskEditor } from "@/components/mask-editor"
-import { useSearchParams } from 'next/navigation'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
-import { CustomModelDialog } from "@/components/custom-model-dialog"
-import { toast } from "sonner"
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Info,
+  Download,
+  Edit,
+  Settings,
+  History,
+  Image as ImageIcon,
+  MessageSquare,
+  Upload,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
+  Github,
+} from "lucide-react";
+import Image from "next/image";
+import { ApiKeyDialog } from "@/components/api-key-dialog";
+import { HistoryDialog } from "@/components/history-dialog";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { api } from "@/lib/api";
+import {
+  GenerationModel,
+  AspectRatio,
+  ImageSize,
+  DalleImageData,
+  ModelType,
+} from "@/types";
+import { storage } from "@/lib/storage";
+import { v4 as uuidv4 } from "uuid";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { MaskEditor } from "@/components/mask-editor";
+import { useSearchParams } from "next/navigation";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
+import { CustomModelDialog } from "@/components/custom-model-dialog";
+import { toast } from "sonner";
 
 export default function Home() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <HomeContent />
     </Suspense>
-  )
+  );
 }
 
 function HomeContent() {
-  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false)
-  const [showHistoryDialog, setShowHistoryDialog] = useState(false)
-  const [showCustomModelDialog, setShowCustomModelDialog] = useState(false)
-  const [prompt, setPrompt] = useState("")
-  const [model, setModel] = useState<GenerationModel>("sora_image")
-  const [modelType, setModelType] = useState<ModelType>(ModelType.OPENAI)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [generatedImages, setGeneratedImages] = useState<string[]>([])
-  const [currentImageIndex, setCurrentImageIndex] = useState(0)
-  const [showImageDialog, setShowImageDialog] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [streamContent, setStreamContent] = useState<string>("")
-  const [isImageToImage, setIsImageToImage] = useState(false)
-  const [sourceImages, setSourceImages] = useState<string[]>([])
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1")
-  const [size, setSize] = useState<ImageSize>("1024x1024")
-  const [n, setN] = useState(1)
-  const [quality, setQuality] = useState<'auto' | 'high' | 'medium' | 'low' | 'hd' | 'standard'>('auto')
-  const contentRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [showMaskEditor, setShowMaskEditor] = useState(false)
-  const [maskImage, setMaskImage] = useState<string | null>(null)
-  const [isMaskEditorOpen, setIsMaskEditorOpen] = useState(false)
-  const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const searchParams = useSearchParams()
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [showCustomModelDialog, setShowCustomModelDialog] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [model, setModel] = useState<GenerationModel>("sora_image");
+  const [modelType, setModelType] = useState<ModelType>(ModelType.OPENAI);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showImageDialog, setShowImageDialog] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [streamContent, setStreamContent] = useState<string>("");
+  const [isImageToImage, setIsImageToImage] = useState(false);
+  const [sourceImages, setSourceImages] = useState<string[]>([]);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
+  const [size, setSize] = useState<ImageSize>("1024x1024");
+  const [n, setN] = useState(1);
+  const [quality, setQuality] = useState<
+    "auto" | "high" | "medium" | "low" | "hd" | "standard"
+  >("auto");
+  const contentRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showMaskEditor, setShowMaskEditor] = useState(false);
+  const [maskImage, setMaskImage] = useState<string | null>(null);
+  const [isMaskEditorOpen, setIsMaskEditorOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [customModels, setCustomModels] = useState<CustomModel[]>([]);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
-    const url = searchParams.get('url')
-    const apiKey = searchParams.get('apikey')
-    
-    if (url && apiKey) {
-      // 解码 URL 参数
-      const decodedUrl = decodeURIComponent(url)
-      const decodedApiKey = decodeURIComponent(apiKey)
-      storage.setApiConfig(decodedApiKey, decodedUrl)
-    }
+    const initializeConfig = async () => {
+      const url = searchParams.get("url");
+      const apiKey = searchParams.get("apikey");
 
-    // 检查并修复存储的API URL，确保使用HTTPS
-    const storedConfig = storage.getApiConfig()
-    if (storedConfig && storedConfig.baseUrl && storedConfig.baseUrl.startsWith('http:')) {
-      const secureUrl = storedConfig.baseUrl.replace('http:', 'https:')
-      storage.setApiConfig(storedConfig.key, secureUrl)
-      console.log('API URL已自动升级到HTTPS:', secureUrl)
-    }
-  }, [searchParams])
+      if (url && apiKey) {
+        // 解码 URL 参数
+        const decodedUrl = decodeURIComponent(url);
+        const decodedApiKey = decodeURIComponent(apiKey);
+        await storage.setApiConfig(decodedApiKey, decodedUrl);
+      }
+
+      // 检查并修复存储的API URL，确保使用HTTPS
+      const storedConfig = await storage.getApiConfig();
+      if (
+        storedConfig &&
+        storedConfig.baseUrl &&
+        storedConfig.baseUrl.startsWith("http:")
+      ) {
+        const secureUrl = storedConfig.baseUrl.replace("http:", "https:");
+        await storage.setApiConfig(storedConfig.key, secureUrl);
+        console.log("API URL已自动升级到HTTPS:", secureUrl);
+      }
+
+      // 加载自定义模型
+      const models = await storage.getCustomModels();
+      setCustomModels(models);
+    };
+
+    initializeConfig();
+  }, [searchParams]);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
+    const files = event.target.files;
     if (files && files.length > 0) {
-      Array.from(files).forEach(file => {
+      Array.from(files).forEach((file) => {
         if (file.size > 4 * 1024 * 1024) {
-          setError("图片大小不能超过4MB")
-          return
+          setError("图片大小不能超过4MB");
+          return;
         }
 
         // 检查文件类型
-        if (!['image/jpeg', 'image/png'].includes(file.type)) {
-          setError("只支持JPG和PNG格式的图片")
-          return
+        if (!["image/jpeg", "image/png"].includes(file.type)) {
+          setError("只支持JPG和PNG格式的图片");
+          return;
         }
 
-        const reader = new FileReader()
+        const reader = new FileReader();
         reader.onload = (e) => {
-          const base64 = e.target?.result as string
-          setSourceImages(prev => [...prev, base64])
-        }
-        reader.readAsDataURL(file)
-      })
+          const base64 = e.target?.result as string;
+          setSourceImages((prev) => [...prev, base64]);
+        };
+        reader.readAsDataURL(file);
+      });
     }
-  }
+  };
 
   const handleRemoveImage = (index: number) => {
-    setSourceImages(prev => prev.filter((_, i) => i !== index))
+    setSourceImages((prev) => prev.filter((_, i) => i !== index));
     // 重置文件输入框的值，确保相同的文件可以再次上传
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+      fileInputRef.current.value = "";
     }
-  }
+  };
 
   const isBase64Image = (url: string) => {
-    return url.startsWith('data:image');
-  }
+    return url.startsWith("data:image");
+  };
 
   const handleSelectCustomModel = (modelValue: string, type: ModelType) => {
-    setModel(modelValue)
-    setModelType(type)
-    toast.success("已选择自定义模型")
-  }
+    setModel(modelValue);
+    setModelType(type);
+    toast.success("已选择自定义模型");
+  };
 
   const handleGenerate = async () => {
     if (isImageToImage && sourceImages.length === 0) {
-      setError("请先上传或选择图片")
-      return
+      setError("请先上传或选择图片");
+      return;
     }
     if (!prompt.trim()) {
-      setError("请输入提示词")
-      return
+      setError("请输入提示词");
+      return;
     }
 
-    setError(null)
-    setIsGenerating(true)
-    setGeneratedImages([])
-    setStreamContent("")
-    setCurrentImageIndex(0)
+    setError(null);
+    setIsGenerating(true);
+    setGeneratedImages([]);
+    setStreamContent("");
+    setCurrentImageIndex(0);
 
     try {
-      const isDalleModel = model === 'dall-e-3' || model === 'gpt-image-1' || modelType === ModelType.DALLE
-      
+      const isDalleModel =
+        model === "dall-e-3" ||
+        model === "gpt-image-1" ||
+        modelType === ModelType.DALLE;
+
       // 如果有多张源图片，将它们的信息添加到提示词中
       let enhancedPrompt = prompt.trim();
       if (sourceImages.length > 1) {
         enhancedPrompt += `\n\n参考图片信息：上传了${sourceImages.length}张参考图片，第一张作为主要参考，其他图片作为额外参考。`;
       }
-      
-      const finalPrompt = isDalleModel ? enhancedPrompt : `${enhancedPrompt}\n图片生成比例为：${aspectRatio}`
-      
+
+      const finalPrompt = isDalleModel
+        ? enhancedPrompt
+        : `${enhancedPrompt}\n图片生成比例为：${aspectRatio}`;
+
       if (isDalleModel) {
         if (isImageToImage) {
           if (sourceImages.length === 0) {
-            throw new Error('请先上传图片')
+            throw new Error("请先上传图片");
           }
-          
+
           try {
             // DALL-E API仅支持使用第一张图片进行编辑
             // 注意: 对于generateStreamImage方法，我们已添加对多图片的支持
@@ -164,36 +209,38 @@ function HomeContent() {
               size,
               n,
               mask: maskImage || undefined,
-              quality
-            })
-            
-            const imageUrls = response.data.map(item => {
-              // 处理DALL-E返回的URL或base64图片
-              const imageUrl = item.url || item.b64_json;
-              // 如果是base64格式，添加data:image前缀(如果还没有)
-              if (imageUrl && item.b64_json && !isBase64Image(imageUrl)) {
-                return `data:image/png;base64,${imageUrl}`;
-              }
-              return imageUrl || ''; // 添加空字符串作为默认值
-            }).filter(url => url !== ''); // 过滤掉空链接
-            
-            setGeneratedImages(imageUrls)
-            
+              quality,
+            });
+
+            const imageUrls = response.data
+              .map((item) => {
+                // 处理DALL-E返回的URL或base64图片
+                const imageUrl = item.url || item.b64_json;
+                // 如果是base64格式，添加data:image前缀(如果还没有)
+                if (imageUrl && item.b64_json && !isBase64Image(imageUrl)) {
+                  return `data:image/png;base64,${imageUrl}`;
+                }
+                return imageUrl || ""; // 添加空字符串作为默认值
+              })
+              .filter((url) => url !== ""); // 过滤掉空链接
+
+            setGeneratedImages(imageUrls);
+
             if (imageUrls.length > 0) {
-              storage.addToHistory({
+              await storage.addToHistory({
                 id: uuidv4(),
                 prompt: finalPrompt,
                 url: imageUrls[0],
                 model,
                 createdAt: new Date().toISOString(),
-                aspectRatio: '1:1'
-              })
+                aspectRatio: "1:1",
+              });
             }
           } catch (err) {
             if (err instanceof Error) {
-              setError(err.message)
+              setError(err.message);
             } else {
-              setError('生成图片失败，请重试')
+              setError("生成图片失败，请重试");
             }
           }
         } else {
@@ -203,36 +250,38 @@ function HomeContent() {
               model,
               size,
               n,
-              quality
-            })
-            
-            const imageUrls = response.data.map(item => {
-              // 处理DALL-E返回的URL或base64图片
-              const imageUrl = item.url || item.b64_json;
-              // 如果是base64格式，添加data:image前缀(如果还没有)
-              if (imageUrl && item.b64_json && !isBase64Image(imageUrl)) {
-                return `data:image/png;base64,${imageUrl}`;
-              }
-              return imageUrl || ''; // 添加空字符串作为默认值
-            }).filter(url => url !== ''); // 过滤掉空链接
-            
-            setGeneratedImages(imageUrls)
-            
+              quality,
+            });
+
+            const imageUrls = response.data
+              .map((item) => {
+                // 处理DALL-E返回的URL或base64图片
+                const imageUrl = item.url || item.b64_json;
+                // 如果是base64格式，添加data:image前缀(如果还没有)
+                if (imageUrl && item.b64_json && !isBase64Image(imageUrl)) {
+                  return `data:image/png;base64,${imageUrl}`;
+                }
+                return imageUrl || ""; // 添加空字符串作为默认值
+              })
+              .filter((url) => url !== ""); // 过滤掉空链接
+
+            setGeneratedImages(imageUrls);
+
             if (imageUrls.length > 0) {
-              storage.addToHistory({
+              await storage.addToHistory({
                 id: uuidv4(),
                 prompt: finalPrompt,
                 url: imageUrls[0],
                 model,
                 createdAt: new Date().toISOString(),
-                aspectRatio: '1:1'
-              })
+                aspectRatio: "1:1",
+              });
             }
           } catch (err) {
             if (err instanceof Error) {
-              setError(err.message)
+              setError(err.message);
             } else {
-              setError('生成图片失败，请重试')
+              setError("生成图片失败，请重试");
             }
           }
         }
@@ -242,89 +291,98 @@ function HomeContent() {
             prompt: finalPrompt,
             model,
             modelType,
-            sourceImage: isImageToImage && sourceImages.length > 0 ? sourceImages[0] : undefined,
+            sourceImage:
+              isImageToImage && sourceImages.length > 0
+                ? sourceImages[0]
+                : undefined,
             sourceImages: isImageToImage ? sourceImages : undefined,
             isImageToImage,
-            aspectRatio
+            aspectRatio,
           },
           {
             onMessage: (content) => {
-              setStreamContent(prev => prev + content)
+              setStreamContent((prev) => prev + content);
               if (contentRef.current) {
-                contentRef.current.scrollTop = contentRef.current.scrollHeight
+                contentRef.current.scrollTop = contentRef.current.scrollHeight;
               }
             },
-            onComplete: (imageUrl) => {
-              setGeneratedImages([imageUrl])
-              storage.addToHistory({
+            onComplete: async (imageUrl) => {
+              setGeneratedImages([imageUrl]);
+              await storage.addToHistory({
                 id: uuidv4(),
                 prompt: finalPrompt,
                 url: imageUrl,
                 model,
                 createdAt: new Date().toISOString(),
-                aspectRatio
-              })
+                aspectRatio,
+              });
             },
             onError: (error) => {
               // 处理流式 API 错误
-              if (typeof error === 'object' && error !== null) {
-                const apiError = error as any
-                setError(`图片生成失败: ${apiError.message || '未知错误'}\n${apiError.code ? `错误代码: ${apiError.code}` : ''}`)
+              if (typeof error === "object" && error !== null) {
+                const apiError = error as any;
+                setError(
+                  `图片生成失败: ${apiError.message || "未知错误"}\n${
+                    apiError.code ? `错误代码: ${apiError.code}` : ""
+                  }`
+                );
               } else {
-                setError(error.toString())
+                setError(error.toString());
               }
-            }
+            },
           }
-        )
+        );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "生成失败，请重试")
+      setError(err instanceof Error ? err.message : "生成失败，请重试");
     } finally {
-      setIsGenerating(false)
+      setIsGenerating(false);
     }
-  }
+  };
 
   const handleReset = () => {
-    setPrompt("")
-    setGeneratedImages([])
-    setError(null)
-    setStreamContent("")
-    setSourceImages([])
-    setMaskImage(null)
-    setAspectRatio("1:1")
-    setSize("1024x1024")
-    setN(1)
-    setCurrentImageIndex(0)
-  }
+    setPrompt("");
+    setGeneratedImages([]);
+    setError(null);
+    setStreamContent("");
+    setSourceImages([]);
+    setMaskImage(null);
+    setAspectRatio("1:1");
+    setSize("1024x1024");
+    setN(1);
+    setCurrentImageIndex(0);
+  };
 
   const handlePrevImage = () => {
-    setCurrentImageIndex(prev => (prev - 1 + generatedImages.length) % generatedImages.length)
-  }
+    setCurrentImageIndex(
+      (prev) => (prev - 1 + generatedImages.length) % generatedImages.length
+    );
+  };
 
   const handleNextImage = () => {
-    setCurrentImageIndex(prev => (prev + 1) % generatedImages.length)
-  }
+    setCurrentImageIndex((prev) => (prev + 1) % generatedImages.length);
+  };
 
   const handleEditCurrentImage = () => {
     if (generatedImages[currentImageIndex]) {
-      setIsImageToImage(true)
-      setSourceImages([generatedImages[currentImageIndex]])
+      setIsImageToImage(true);
+      setSourceImages([generatedImages[currentImageIndex]]);
     }
-  }
+  };
 
   const handleDownload = () => {
     if (generatedImages[currentImageIndex]) {
       const imageUrl = generatedImages[currentImageIndex];
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = imageUrl;
-      
+
       // 为base64图片设置合适的文件名
       if (isBase64Image(imageUrl)) {
         link.download = `generated-image-${Date.now()}.png`;
       } else {
-        link.download = 'generated-image.png';
+        link.download = "generated-image.png";
       }
-      
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -337,13 +395,17 @@ function HomeContent() {
       <div className="w-full bg-blue-50 p-4 relative">
         <div className="container mx-auto flex justify-center text-sm text-blue-700">
           <Info className="h-4 w-4 mr-2" />
-          <p>数据安全提示：所有生成的图片和历史记录仅保存在本地浏览器中。请及时下载并备份重要图片。使用隐私模式或更换设备会导致数据丢失无法恢复。</p>
+          <p>
+            数据安全提示：所有生成的图片和历史记录仅保存在本地浏览器中。请及时下载并备份重要图片。使用隐私模式或更换设备会导致数据丢失无法恢复。
+          </p>
         </div>
         <Button
           variant="ghost"
           size="sm"
           className="absolute right-4 top-1/2 -translate-y-1/2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full p-2"
-          onClick={() => window.open('https://github.com/HappyDongD/magic_image', '_blank')}
+          onClick={() =>
+            window.open("https://github.com/HappyDongD/magic_image", "_blank")
+          }
         >
           <Github className="h-5 w-5" />
         </Button>
@@ -352,7 +414,9 @@ function HomeContent() {
       {/* 标题区域 */}
       <div className="text-center py-8">
         <h1 className="text-3xl font-bold">魔法AI绘画</h1>
-        <p className="text-gray-500 mt-2">通过简单的文字描述，创造精美的AI艺术作品</p>
+        <p className="text-gray-500 mt-2">
+          通过简单的文字描述，创造精美的AI艺术作品
+        </p>
       </div>
 
       <div className="container mx-auto px-4 pb-8 max-w-[1200px]">
@@ -362,16 +426,16 @@ function HomeContent() {
             <Card className="sticky top-4">
               <CardContent className="p-4 space-y-4">
                 <div className="flex items-center gap-4">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => setShowApiKeyDialog(true)}
                   >
                     <Settings className="h-4 w-4 mr-2" />
                     密钥设置
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => setShowHistoryDialog(true)}
                   >
@@ -383,15 +447,15 @@ function HomeContent() {
                 <div className="space-y-2">
                   <h3 className="font-medium">生成模式</h3>
                   <div className="grid grid-cols-2 gap-2">
-                    <Button 
-                      variant={isImageToImage ? "outline" : "secondary"} 
+                    <Button
+                      variant={isImageToImage ? "outline" : "secondary"}
                       className="w-full"
                       onClick={() => setIsImageToImage(false)}
                     >
                       <MessageSquare className="h-4 w-4 mr-2" />
                       文生图
                     </Button>
-                    <Button 
+                    <Button
                       variant={isImageToImage ? "secondary" : "outline"}
                       className="w-full"
                       onClick={() => setIsImageToImage(true)}
@@ -405,14 +469,17 @@ function HomeContent() {
                 {isImageToImage && (
                   <div className="space-y-2">
                     <h3 className="font-medium">上传图片进行编辑</h3>
-                    <div 
+                    <div
                       className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
                       onClick={() => fileInputRef.current?.click()}
                     >
                       {sourceImages.length > 0 ? (
                         <div className="grid grid-cols-2 gap-2">
                           {sourceImages.map((image, index) => (
-                            <div key={index} className="relative aspect-square w-full">
+                            <div
+                              key={index}
+                              className="relative aspect-square w-full"
+                            >
                               <Image
                                 src={image}
                                 alt={`Source ${index + 1}`}
@@ -443,7 +510,9 @@ function HomeContent() {
                           <Upload className="h-8 w-8" />
                           <p>点击上传图片或拖拽图片到这里</p>
                           <p className="text-xs">仅支持JPG、PNG格式，最大4MB</p>
-                          <p className="text-xs text-blue-500">可上传多张图片作为参考（最多4张）</p>
+                          <p className="text-xs text-blue-500">
+                            可上传多张图片作为参考（最多4张）
+                          </p>
                         </div>
                       )}
                     </div>
@@ -458,22 +527,26 @@ function HomeContent() {
                   </div>
                 )}
 
-                {isImageToImage && sourceImages.length > 0 && (model === 'dall-e-3' || model === 'gpt-image-1' || modelType === ModelType.DALLE) && (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      setIsMaskEditorOpen(true)
-                      setSelectedImage(sourceImages[0])
-                    }}
-                  >
-                    {maskImage ? "重新编辑区域" : "编辑图片区域"}
-                  </Button>
-                )}
+                {isImageToImage &&
+                  sourceImages.length > 0 &&
+                  (model === "dall-e-3" ||
+                    model === "gpt-image-1" ||
+                    modelType === ModelType.DALLE) && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setIsMaskEditorOpen(true);
+                        setSelectedImage(sourceImages[0]);
+                      }}
+                    >
+                      {maskImage ? "重新编辑区域" : "编辑图片区域"}
+                    </Button>
+                  )}
 
                 <div className="space-y-2">
                   <h3 className="font-medium">提示词</h3>
-                  <Textarea 
+                  <Textarea
                     placeholder="描述你想要生成的图像，例如：一只可爱的猫咪，柔软的毛发，大眼睛，阳光下微笑..."
                     className="min-h-[120px]"
                     value={prompt}
@@ -484,15 +557,15 @@ function HomeContent() {
                 <div className="space-y-2">
                   <h3 className="font-medium">模型选择</h3>
                   <div className="flex gap-2 mb-2">
-                    <Select 
-                      value={model} 
+                    <Select
+                      value={model}
                       onValueChange={(value: GenerationModel) => {
-                        setModel(value)
+                        setModel(value);
                         // 为内置模型设置对应的模型类型
-                        if (value === 'dall-e-3' || value === 'gpt-image-1') {
-                          setModelType(ModelType.DALLE)
+                        if (value === "dall-e-3" || value === "gpt-image-1") {
+                          setModelType(ModelType.DALLE);
                         } else {
-                          setModelType(ModelType.OPENAI)
+                          setModelType(ModelType.OPENAI);
                         }
                       }}
                     >
@@ -500,23 +573,33 @@ function HomeContent() {
                         <SelectValue placeholder="选择生成模型" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="sora_image">GPT Sora_Image 模型</SelectItem>
-                        <SelectItem value="gpt_4o_image">GPT 4o_Image 模型</SelectItem>
-                        <SelectItem value="gpt-image-1">GPT Image 1 模型</SelectItem>
+                        <SelectItem value="sora_image">
+                          GPT Sora_Image 模型
+                        </SelectItem>
+                        <SelectItem value="gpt_4o_image">
+                          GPT 4o_Image 模型
+                        </SelectItem>
+                        <SelectItem value="gpt-image-1">
+                          GPT Image 1 模型
+                        </SelectItem>
                         <SelectItem value="dall-e-3">DALL-E 3 模型</SelectItem>
-                        
+
                         {/* 显示自定义模型 */}
-                        {storage.getCustomModels().length > 0 && (
+                        {customModels.length > 0 && (
                           <>
                             <SelectItem value="divider" disabled>
                               ──── 自定义模型 ────
                             </SelectItem>
-                            {storage.getCustomModels().map(customModel => (
-                              <SelectItem 
-                                key={customModel.id} 
+                            {customModels.map((customModel) => (
+                              <SelectItem
+                                key={customModel.id}
                                 value={customModel.value}
                               >
-                                {customModel.name} ({customModel.type === ModelType.DALLE ? "DALL-E" : "OpenAI"})
+                                {customModel.name} (
+                                {customModel.type === ModelType.DALLE
+                                  ? "DALL-E"
+                                  : "OpenAI"}
+                                )
                               </SelectItem>
                             ))}
                           </>
@@ -532,30 +615,53 @@ function HomeContent() {
                       <Settings className="h-4 w-4" />
                     </Button>
                   </div>
-                  <p className="text-xs text-gray-500">模型类型: {modelType === ModelType.DALLE ? 'DALL-E格式' : 'OpenAI格式'}</p>
-                  <p className="text-xs text-gray-500">选择不同的AI模型可能会产生不同风格的图像结果</p>
+                  <p className="text-xs text-gray-500">
+                    模型类型:{" "}
+                    {modelType === ModelType.DALLE
+                      ? "DALL-E格式"
+                      : "OpenAI格式"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    选择不同的AI模型可能会产生不同风格的图像结果
+                  </p>
                 </div>
 
-                {(model === 'dall-e-3' || model === 'gpt-image-1' || modelType === ModelType.DALLE) && (
+                {(model === "dall-e-3" ||
+                  model === "gpt-image-1" ||
+                  modelType === ModelType.DALLE) && (
                   <>
                     <div className="space-y-2">
                       <h3 className="font-medium">图片尺寸</h3>
-                      <Select value={size} onValueChange={(value: ImageSize) => setSize(value)}>
+                      <Select
+                        value={size}
+                        onValueChange={(value: ImageSize) => setSize(value)}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="选择图片尺寸" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="1024x1024">1024x1024 方形</SelectItem>
-                          <SelectItem value="1536x1024">1536x1024 横向</SelectItem>
-                          <SelectItem value="1024x1536">1024x1536 纵向</SelectItem>
-                          <SelectItem value="1792x1024">1792x1024 宽屏</SelectItem>
+                          <SelectItem value="1024x1024">
+                            1024x1024 方形
+                          </SelectItem>
+                          <SelectItem value="1536x1024">
+                            1536x1024 横向
+                          </SelectItem>
+                          <SelectItem value="1024x1536">
+                            1024x1536 纵向
+                          </SelectItem>
+                          <SelectItem value="1792x1024">
+                            1792x1024 宽屏
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div className="space-y-2">
                       <h3 className="font-medium">生成数量</h3>
-                      <Select value={n.toString()} onValueChange={(value) => setN(parseInt(value))}>
+                      <Select
+                        value={n.toString()}
+                        onValueChange={(value) => setN(parseInt(value))}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="选择生成数量" />
                         </SelectTrigger>
@@ -571,21 +677,31 @@ function HomeContent() {
                     {isImageToImage && (
                       <div className="space-y-2">
                         <h3 className="font-medium">图片质量</h3>
-                        <Select 
-                          value={quality} 
-                          onValueChange={(value: 'auto' | 'high' | 'medium' | 'low' | 'hd' | 'standard') => setQuality(value)}
+                        <Select
+                          value={quality}
+                          onValueChange={(
+                            value:
+                              | "auto"
+                              | "high"
+                              | "medium"
+                              | "low"
+                              | "hd"
+                              | "standard"
+                          ) => setQuality(value)}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="选择图片质量" />
                           </SelectTrigger>
                           <SelectContent>
-                            {model === 'dall-e-3' ? (
+                            {model === "dall-e-3" ? (
                               <>
                                 <SelectItem value="hd">HD 高质量</SelectItem>
-                                <SelectItem value="standard">标准质量</SelectItem>
+                                <SelectItem value="standard">
+                                  标准质量
+                                </SelectItem>
                                 <SelectItem value="auto">自动选择</SelectItem>
                               </>
-                            ) : model === 'gpt-image-1' ? (
+                            ) : model === "gpt-image-1" ? (
                               <>
                                 <SelectItem value="high">高质量</SelectItem>
                                 <SelectItem value="medium">中等质量</SelectItem>
@@ -600,10 +716,19 @@ function HomeContent() {
                   </>
                 )}
 
-                {!(model === 'dall-e-3' || model === 'gpt-image-1' || modelType === ModelType.DALLE) && (
+                {!(
+                  model === "dall-e-3" ||
+                  model === "gpt-image-1" ||
+                  modelType === ModelType.DALLE
+                ) && (
                   <div className="space-y-2">
                     <h3 className="font-medium">图片比例</h3>
-                    <Select value={aspectRatio} onValueChange={(value: AspectRatio) => setAspectRatio(value)}>
+                    <Select
+                      value={aspectRatio}
+                      onValueChange={(value: AspectRatio) =>
+                        setAspectRatio(value)
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="选择图片比例" />
                       </SelectTrigger>
@@ -616,15 +741,19 @@ function HomeContent() {
                   </div>
                 )}
 
-                <Button 
-                  className="w-full" 
+                <Button
+                  className="w-full"
                   onClick={handleGenerate}
                   disabled={isGenerating}
                 >
-                  {isGenerating ? "生成中..." : isImageToImage ? "编辑图片" : "生成图片"}
+                  {isGenerating
+                    ? "生成中..."
+                    : isImageToImage
+                    ? "编辑图片"
+                    : "生成图片"}
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full"
                   onClick={handleReset}
                 >
@@ -641,19 +770,19 @@ function HomeContent() {
                 <h2 className="text-xl font-semibold">生成结果</h2>
                 {generatedImages.length > 0 && (
                   <div className="flex items-center gap-2">
-                    <Button 
-                      size="icon" 
+                    <Button
+                      size="icon"
                       variant="ghost"
                       onClick={handleDownload}
                     >
                       <Download className="h-5 w-5" />
                     </Button>
-                    <Button 
-                      size="icon" 
+                    <Button
+                      size="icon"
                       variant="ghost"
                       onClick={() => {
-                        setIsImageToImage(true)
-                        setSourceImages([generatedImages[currentImageIndex]])
+                        setIsImageToImage(true);
+                        setSourceImages([generatedImages[currentImageIndex]]);
                       }}
                     >
                       <Edit className="h-5 w-5" />
@@ -669,12 +798,18 @@ function HomeContent() {
                 </div>
               ) : (
                 <div className="w-full h-full flex flex-col gap-4">
-                  {(model === 'dall-e-3' || model === 'gpt-image-1' || modelType === ModelType.DALLE) ? (
+                  {model === "dall-e-3" ||
+                  model === "gpt-image-1" ||
+                  modelType === ModelType.DALLE ? (
                     <div className="text-center text-gray-400">
-                      {isGenerating ? "正在生成中..." : generatedImages.length === 0 ? "等待生成..." : null}
+                      {isGenerating
+                        ? "正在生成中..."
+                        : generatedImages.length === 0
+                        ? "等待生成..."
+                        : null}
                     </div>
                   ) : (
-                    <div 
+                    <div
                       ref={contentRef}
                       className="flex-1 overflow-y-auto rounded-lg bg-gray-50 p-4 font-mono text-sm min-h-[200px] markdown-content"
                     >
@@ -685,25 +820,45 @@ function HomeContent() {
                           components={{
                             // 自定义链接在新窗口打开
                             a: ({ node, ...props }) => (
-                              <a target="_blank" rel="noopener noreferrer" {...props} />
+                              <a
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                {...props}
+                              />
                             ),
                             // 自定义代码块样式
-                            code: ({ node, className, children, ...props }: any) => {
-                              const match = /language-(\w+)/.exec(className || '')
+                            code: ({
+                              node,
+                              className,
+                              children,
+                              ...props
+                            }: any) => {
+                              const match = /language-(\w+)/.exec(
+                                className || ""
+                              );
                               // 内联代码与代码块处理
-                              const isInline = !match && !className
+                              const isInline = !match && !className;
                               if (isInline) {
-                                return <code className={className} {...props}>{children}</code>
+                                return (
+                                  <code className={className} {...props}>
+                                    {children}
+                                  </code>
+                                );
                               }
                               // 代码块
                               return (
-                                <pre className={`${className || ''}`}>
-                                  <code className={match ? `language-${match[1]}` : ''} {...props}>
+                                <pre className={`${className || ""}`}>
+                                  <code
+                                    className={
+                                      match ? `language-${match[1]}` : ""
+                                    }
+                                    {...props}
+                                  >
                                     {children}
                                   </code>
                                 </pre>
-                              )
-                            }
+                              );
+                            },
                           }}
                         >
                           {streamContent}
@@ -755,16 +910,16 @@ function HomeContent() {
         </div>
       </div>
 
-      <ApiKeyDialog 
-        open={showApiKeyDialog} 
-        onOpenChange={setShowApiKeyDialog} 
+      <ApiKeyDialog
+        open={showApiKeyDialog}
+        onOpenChange={setShowApiKeyDialog}
       />
-      <HistoryDialog 
-        open={showHistoryDialog} 
+      <HistoryDialog
+        open={showHistoryDialog}
         onOpenChange={setShowHistoryDialog}
         onEditImage={(imageUrl) => {
-          setIsImageToImage(true)
-          setSourceImages([imageUrl])
+          setIsImageToImage(true);
+          setSourceImages([imageUrl]);
         }}
       />
       <CustomModelDialog
@@ -774,9 +929,9 @@ function HomeContent() {
       />
 
       <footer className="w-full py-4 text-center text-sm text-gray-500">
-        <a 
-          href="https://github.com/HappyDongD/magic_image" 
-          target="_blank" 
+        <a
+          href="https://github.com/HappyDongD/magic_image"
+          target="_blank"
           rel="noopener noreferrer"
           className="hover:text-primary transition-colors inline-flex items-center gap-2"
         >
@@ -802,13 +957,13 @@ function HomeContent() {
         <MaskEditor
           imageUrl={selectedImage}
           onMaskChange={(maskDataUrl) => {
-            setMaskImage(maskDataUrl)
-            setIsMaskEditorOpen(false)
+            setMaskImage(maskDataUrl);
+            setIsMaskEditorOpen(false);
           }}
           onClose={() => setIsMaskEditorOpen(false)}
           initialMask={maskImage || undefined}
         />
       ) : null}
     </main>
-  )
+  );
 }

@@ -1,0 +1,92 @@
+version: "3.8"
+
+services:
+  # Next.js 应用服务
+  magic-image-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: magic-image-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    networks:
+      - magic-image-network
+
+  # 自动更新服务 - 监控仓库变化并自动重新部署
+  auto-updater:
+    image: alpine/git:latest
+    container_name: magic-image-updater
+    environment:
+      - GIT_REPO=https://github.com/jasonk0/magic_image.git
+      - GIT_BRANCH=master
+      - CHECK_INTERVAL=600
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workspace
+    restart: unless-stopped
+    networks:
+      - magic-image-network
+    command: >
+      sh -c "
+        apk add --no-cache docker-cli curl
+        cd /workspace
+
+        # 初始化仓库
+        if [ ! -d .git ]; then
+          git clone $$GIT_REPO .
+        fi
+
+        # 获取当前提交哈希
+        CURRENT_HASH=$$(git rev-parse HEAD)
+        echo \"当前提交: $$CURRENT_HASH\"
+
+        while true; do
+          echo \"检查仓库更新...\"
+          git fetch origin $$GIT_BRANCH
+          LATEST_HASH=$$(git rev-parse origin/$$GIT_BRANCH)
+
+          if [ \"$$CURRENT_HASH\" != \"$$LATEST_HASH\" ]; then
+            echo \"发现新提交: $$LATEST_HASH\"
+            echo \"开始更新应用...\"
+
+            # 拉取最新代码
+            git reset --hard origin/$$GIT_BRANCH
+
+            # 重新构建并重启应用
+            docker-compose build magic-image-app
+            docker-compose up -d magic-image-app
+
+            CURRENT_HASH=$$LATEST_HASH
+            echo \"应用更新完成！\"
+          else
+            echo \"没有新的更新\"
+          fi
+
+          sleep $$CHECK_INTERVAL
+        done
+      "
+
+  # Webhook 服务 - 接收 GitHub webhook 触发更新（可选）
+  webhook-receiver:
+    image: adnanh/webhook:2.8.0
+    container_name: magic-image-webhook
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./webhook-config:/etc/webhook
+      - ./scripts:/scripts
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/app
+    restart: unless-stopped
+    networks:
+      - magic-image-network
+    command: ["-verbose", "-hooks=/etc/webhook/hooks.json", "-hotreload"]
+    profiles:
+      - webhook
+
+networks:
+  magic-image-network:
+    driver: bridge

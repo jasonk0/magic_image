@@ -1,0 +1,32 @@
+[
+  {
+    "id": "magic-image-deploy",
+    "execute-command": "/scripts/deploy.sh",
+    "command-working-directory": "/app",
+    "response-message": "Deployment triggered successfully",
+    "trigger-rule": {
+      "and": [
+        {
+          "match": {
+            "type": "payload-hash-sha256",
+            "secret": "your-webhook-secret-here",
+            "parameter": {
+              "source": "header",
+              "name": "X-Hub-Signature-256"
+            }
+          }
+        },
+        {
+          "match": {
+            "type": "value",
+            "value": "refs/heads/master",
+            "parameter": {
+              "source": "payload",
+              "name": "ref"
+            }
+          }
+        }
+      ]
+    }
+  }
+]
