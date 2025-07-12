@@ -9,7 +9,11 @@ export const metadata: Metadata = {
   description: "AI Drawing Application",
 };
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  display: 'swap',
+  fallback: ['system-ui', 'arial']
+});
 
 export default function RootLayout({
   children,

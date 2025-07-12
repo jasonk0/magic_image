@@ -1,14 +1,31 @@
 # 使用官方 Node.js 运行时作为基础镜像
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # 安装依赖阶段
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache \
+    libc6-compat \
+    python3 \
+    make \
+    g++ \
+    git \
+    openssl \
+    pkgconfig \
+    cairo-dev \
+    pango-dev \
+    jpeg-dev \
+    giflib-dev
+
+
 WORKDIR /app
 
 # 复制 package.json 和 package-lock.json
-COPY package*.json ./
-RUN npm ci --only=production
+COPY package*.json pnpm-lock.yaml* ./
+
+RUN corepack enable pnpm && \
+    pnpm config set store-dir /app/.pnpm-store && \
+    NODE_OPTIONS="--max-old-space-size=4096" pnpm i --frozen-lockfile
+
 
 # 构建阶段
 FROM base AS builder

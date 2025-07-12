@@ -7,8 +7,9 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: magic-image-app
+    
     ports:
-      - "3000:3000"
+      - "3002:3000"
     environment:
       - NODE_ENV=production
     restart: unless-stopped

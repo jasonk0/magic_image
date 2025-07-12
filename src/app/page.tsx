@@ -35,6 +35,7 @@ import {
   ImageSize,
   DalleImageData,
   ModelType,
+  CustomModel,
 } from "@/types";
 import { storage } from "@/lib/storage";
 import { v4 as uuidv4 } from "uuid";
