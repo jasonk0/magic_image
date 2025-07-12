@@ -1,8 +1,9 @@
-# 使用官方 Node.js 运行时作为基础镜像
-FROM node:20-alpine AS base
+# syntax=docker.io/docker/dockerfile:1
+FROM --platform=linux/amd64 node:20-alpine AS base
 
 # 安装依赖阶段
 FROM base AS deps
+# 添加必要的构建工具和兼容性库
 RUN apk add --no-cache \
     libc6-compat \
     python3 \
@@ -16,45 +17,71 @@ RUN apk add --no-cache \
     jpeg-dev \
     giflib-dev
 
-
 WORKDIR /app
 
-# 复制 package.json 和 package-lock.json
-COPY package*.json pnpm-lock.yaml* ./
+# 复制包管理文件
+COPY package.json pnpm-lock.yaml* ./
 
+# 启用 pnpm 并安装依赖
 RUN corepack enable pnpm && \
     pnpm config set store-dir /app/.pnpm-store && \
     NODE_OPTIONS="--max-old-space-size=4096" pnpm i --frozen-lockfile
 
-
 # 构建阶段
 FROM base AS builder
 WORKDIR /app
+
+# 复制依赖
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 构建应用
-RUN npm run build
+# 创建Docker专用的Next.js配置
+RUN cp next.config.js next.config.docker.js
 
-# 生产运行阶段
-FROM base AS runner
+# 设置构建时间参数
+ARG BUILD_TIME
+ARG APP_VERSION=1.0.0
+
+# 设置环境变量
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+ENV SKIP_ENV_VALIDATION=1
+ENV NEXT_PUBLIC_BUILD_TIME=${BUILD_TIME}
+ENV NEXT_PUBLIC_APP_VERSION=${APP_VERSION}
+
+# 启用 pnpm
+RUN corepack enable pnpm
+
+# 构建应用 - 使用环境变量设置内存限制
+RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm build
+
+# 生产阶段 - 使用更小的基础镜像
+FROM --platform=linux/amd64 node:20-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
+# 创建非root用户运行应用
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# 复制构建产物
-COPY --from=builder /app/public ./public
+# 只复制生产运行时必需的文件
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
+# 创建数据目录
+RUN mkdir -p /app/data /app/logs /app/public/uploads
+RUN chown -R nextjs:nodejs /app/data /app/logs /app/public/uploads
+
+# 切换到非root用户
 USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
+# 直接使用 Node.js 启动应用，不需要 pnpm
 CMD ["node", "server.js"]
