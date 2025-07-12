@@ -23,6 +23,7 @@ import {
   ChevronRight,
   Maximize2,
   Github,
+  LogOut,
 } from "lucide-react";
 import Image from "next/image";
 import { ApiKeyDialog } from "@/components/api-key-dialog";
@@ -41,7 +42,7 @@ import { storage } from "@/lib/storage";
 import { v4 as uuidv4 } from "uuid";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { MaskEditor } from "@/components/mask-editor";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -51,9 +52,57 @@ import { toast } from "sonner";
 export default function Home() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <HomeContent />
+      <AuthWrapper>
+        <HomeContent />
+      </AuthWrapper>
     </Suspense>
   );
+}
+
+function AuthWrapper({ children }: { children: React.ReactNode }) {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch("/api/auth/verify", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+          router.replace("/login");
+        }
+      } catch (error) {
+        console.error("Auth check failed:", error);
+        setIsAuthenticated(false);
+        router.replace("/login");
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">验证身份中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null; // 将重定向到登录页面
+  }
+
+  return <>{children}</>;
 }
 
 function HomeContent() {
@@ -159,6 +208,26 @@ function HomeContent() {
     setModel(modelValue);
     setModelType(type);
     toast.success("已选择自定义模型");
+  };
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        toast.success("已退出登录");
+        // 刷新页面，中间件会自动重定向到登录页面
+        window.location.reload();
+      } else {
+        toast.error("退出登录失败");
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("退出登录失败");
+    }
   };
 
   const handleGenerate = async () => {
@@ -426,7 +495,7 @@ function HomeContent() {
           <div className="space-y-6">
             <Card className="sticky top-4">
               <CardContent className="p-4 space-y-4">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Button
                     variant="outline"
                     size="sm"
@@ -442,6 +511,15 @@ function HomeContent() {
                   >
                     <History className="h-4 w-4 mr-2" />
                     历史记录
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="text-red-600 hover:text-red-700 hover:border-red-300"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    退出
                   </Button>
                 </div>
 

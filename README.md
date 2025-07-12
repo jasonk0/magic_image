@@ -11,6 +11,7 @@
 - 🎨 支持多种 AI 模型（Sora、DALL-E、GPT等）及自定义模型添加
 - 🖼️ 提供文生图和图生图功能，支持多图参考和区域编辑
 - 🔐 所有数据和API密钥本地存储，保障隐私安全
+- 🛡️ 内置访问令牌认证，保护个人部署的安全性
 - 💻 支持网页版及桌面应用打包，跨平台使用
 
 ## 在线体验
@@ -93,6 +94,82 @@ pnpm dev
 ```
 
 4. 访问 [http://localhost:3000](http://localhost:3000)
+
+## 访问控制配置
+
+为了保护您的个人部署，本应用支持访问令牌认证功能。
+
+### 启用访问控制
+
+1. **设置环境变量**：
+   ```bash
+   # 复制环境变量模板
+   cp .env.example .env
+
+   # 编辑 .env 文件，设置访问令牌
+   ACCESS_TOKEN=your_secret_access_token_here
+   ```
+
+2. **生成安全的访问令牌**：
+   ```bash
+   # 使用 openssl 生成随机令牌
+   openssl rand -hex 32
+
+   # 或使用 node.js
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+3. **Docker 部署时设置**：
+   ```bash
+   # 在 docker-compose.yml 同目录下创建 .env 文件
+   echo "ACCESS_TOKEN=your_secret_token_here" > .env
+
+   # 或直接在启动时设置
+   ACCESS_TOKEN=your_secret_token docker-compose up -d
+   ```
+
+### 使用说明
+
+- 如果设置了 `ACCESS_TOKEN` 环境变量，访问应用时会要求输入访问令牌
+- 如果未设置访问令牌，应用将正常运行，不启用认证功能
+- 令牌验证成功后，会在浏览器中保存7天，期间无需重复输入
+- 可以通过应用内的"退出"按钮清除令牌并重新登录
+
+📖 **详细使用指南**：请查看 [ACCESS-TOKEN-GUIDE.md](./ACCESS-TOKEN-GUIDE.md) 获取完整的配置和使用说明。
+
+## 内置 API 配置
+
+应用支持通过环境变量预配置常用的 AI API，避免每次部署都需要手动输入 API 密钥。
+
+### 支持的 API 类型
+
+- **OpenAI API**：`OPENAI_API_KEY`, `OPENAI_BASE_URL`
+- **Azure OpenAI**：`AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_VERSION`
+- **Anthropic Claude**：`ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`
+- **Google Gemini**：`GOOGLE_API_KEY`, `GOOGLE_BASE_URL`
+- **自定义 API**：`CUSTOM_API_KEY`, `CUSTOM_BASE_URL`, `CUSTOM_MODEL_NAME`
+- **Stability AI**：`STABILITY_API_KEY`, `STABILITY_BASE_URL`
+- **Midjourney**：`MIDJOURNEY_API_KEY`, `MIDJOURNEY_BASE_URL`
+
+### 配置示例
+
+```bash
+# 在 .env 文件中添加
+OPENAI_API_KEY=sk-your_openai_api_key_here
+OPENAI_BASE_URL=https://api.openai.com/v1
+
+# 自定义 API
+CUSTOM_API_KEY=your_custom_api_key
+CUSTOM_BASE_URL=https://your-api.com/v1
+CUSTOM_MODEL_NAME=自定义模型名称
+```
+
+### 使用说明
+
+1. 环境变量配置会在应用启动时自动加载
+2. 在 API 配置对话框中可以看到检测到的环境变量配置
+3. 环境变量配置优先级高于手动配置
+4. API 密钥会被安全地隐藏显示（如：`sk-abc...xyz`）
 
 ## 桌面应用打包
 

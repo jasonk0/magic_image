@@ -1,4 +1,5 @@
 import { storage } from "./storage";
+import { getEnvApiConfigs } from "./env-api-config";
 import {
   GenerationModel,
   AspectRatio,
@@ -51,11 +52,118 @@ const buildRequestUrl = (baseUrl: string, endpoint: string): string => {
   return `${baseUrl}${endpoint}`;
 };
 
+// 获取有效的API配置（优先使用环境变量配置）
+async function getEffectiveApiConfig() {
+  // 在客户端环境中，通过API获取环境变量配置
+  if (typeof window !== 'undefined') {
+    try {
+      const response = await fetch('/api/config/env-apis');
+      if (response.ok) {
+        const data = await response.json();
+        const envConfigs = data.data.configs || [];
+
+        if (envConfigs.length > 0) {
+          // 优先使用第一个OpenAI类型的配置
+          const openaiEnvConfig = envConfigs.find((config: any) => config.type === 'openai');
+          if (openaiEnvConfig) {
+            // 需要获取完整的API Key（不是隐藏版本）
+            const fullConfig = await getFullEnvConfig(openaiEnvConfig.type);
+            if (fullConfig) {
+              return {
+                key: fullConfig.apiKey,
+                baseUrl: fullConfig.baseUrl,
+                source: 'environment'
+              };
+            }
+          }
+
+          // 如果没有OpenAI配置，使用第一个可用的配置
+          const firstConfig = envConfigs[0];
+          const fullConfig = await getFullEnvConfig(firstConfig.type);
+          if (fullConfig) {
+            return {
+              key: fullConfig.apiKey,
+              baseUrl: fullConfig.baseUrl,
+              source: 'environment'
+            };
+          }
+        }
+      }
+    } catch (error) {
+      console.error('获取环境变量配置失败:', error);
+    }
+  } else {
+    // 在服务器端环境中，直接使用环境变量
+    const envConfigs = getEnvApiConfigs();
+
+    // 如果有环境变量配置，优先使用第一个OpenAI类型的配置
+    const openaiEnvConfig = envConfigs.find(config => config.type === 'openai');
+    if (openaiEnvConfig) {
+      return {
+        key: openaiEnvConfig.apiKey,
+        baseUrl: openaiEnvConfig.baseUrl,
+        source: 'environment'
+      };
+    }
+
+    // 如果没有OpenAI环境变量配置，使用第一个可用的环境变量配置
+    if (envConfigs.length > 0) {
+      const firstConfig = envConfigs[0];
+      return {
+        key: firstConfig.apiKey,
+        baseUrl: firstConfig.baseUrl,
+        source: 'environment'
+      };
+    }
+  }
+
+  // 最后尝试本地存储配置
+  const localConfig = await storage.getApiConfig();
+  if (localConfig) {
+    return {
+      key: localConfig.key,
+      baseUrl: localConfig.baseUrl,
+      source: 'local'
+    };
+  }
+
+  return null;
+}
+
+// 获取完整的环境变量配置（包含完整的API Key）
+async function getFullEnvConfig(type: string) {
+  if (typeof window === 'undefined') {
+    // 服务器端直接返回环境变量配置
+    const envConfigs = getEnvApiConfigs();
+    return envConfigs.find(config => config.type === type) || null;
+  }
+
+  // 客户端需要通过API获取完整配置
+  try {
+    const response = await fetch('/api/config/env-apis/full', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ type }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.data || null;
+    }
+  } catch (error) {
+    console.error('获取完整环境变量配置失败:', error);
+  }
+
+  return null;
+}
+
 export const api = {
   generateDalleImage: async (
     request: GenerateImageRequest
   ): Promise<DalleImageResponse> => {
-    const config = await storage.getApiConfig();
+    const config = await getEffectiveApiConfig();
     if (!config) {
       showErrorToast("请先设置 API 配置");
       throw new Error("请先设置 API 配置");
@@ -65,6 +173,10 @@ export const api = {
       showErrorToast("API 配置不完整，请检查 API Key 和基础地址");
       throw new Error("API 配置不完整");
     }
+
+    // 添加配置来源的调试信息
+    console.log(`使用 ${config.source === 'environment' ? '环境变量' : '本地存储'} API 配置`);
+    console.log(`API 地址: ${config.baseUrl}`);
 
     // 根据模型类型构建不同的请求URL
     const modelType = request.modelType || ModelType.DALLE;
@@ -108,7 +220,7 @@ export const api = {
   editDalleImage: async (
     request: GenerateImageRequest
   ): Promise<DalleImageResponse> => {
-    const config = await storage.getApiConfig();
+    const config = await getEffectiveApiConfig();
     if (!config) {
       showErrorToast("请先设置 API 配置");
       throw new Error("请先设置 API 配置");
@@ -196,7 +308,7 @@ export const api = {
     request: GenerateImageRequest,
     callbacks: StreamCallback
   ) => {
-    const config = await storage.getApiConfig();
+    const config = await getEffectiveApiConfig();
     if (!config) {
       const error = "请先设置 API 配置";
       showErrorToast(error);

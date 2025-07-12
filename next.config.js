@@ -5,10 +5,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // 支持Docker部署
-  experimental: {
-    outputFileTracingRoot: undefined,
-  },
 };
 
 module.exports = nextConfig;
