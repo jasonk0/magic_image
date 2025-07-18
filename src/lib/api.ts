@@ -52,19 +52,32 @@ const buildRequestUrl = (baseUrl: string, endpoint: string): string => {
   return `${baseUrl}${endpoint}`;
 };
 
-// 获取有效的API配置（优先使用环境变量配置）
+// 获取有效的API配置（优先使用用户手动配置）
 async function getEffectiveApiConfig() {
+  // 首先检查本地存储的手动配置
+  const localConfig = await storage.getApiConfig();
+  if (localConfig) {
+    return {
+      key: localConfig.key,
+      baseUrl: localConfig.baseUrl,
+      source: "local",
+    };
+  }
+
+  // 如果没有手动配置，再使用环境变量配置
   // 在客户端环境中，通过API获取环境变量配置
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     try {
-      const response = await fetch('/api/config/env-apis');
+      const response = await fetch("/api/config/env-apis");
       if (response.ok) {
         const data = await response.json();
         const envConfigs = data.data.configs || [];
 
         if (envConfigs.length > 0) {
           // 优先使用第一个OpenAI类型的配置
-          const openaiEnvConfig = envConfigs.find((config: any) => config.type === 'openai');
+          const openaiEnvConfig = envConfigs.find(
+            (config: any) => config.type === "openai"
+          );
           if (openaiEnvConfig) {
             // 需要获取完整的API Key（不是隐藏版本）
             const fullConfig = await getFullEnvConfig(openaiEnvConfig.type);
@@ -72,7 +85,7 @@ async function getEffectiveApiConfig() {
               return {
                 key: fullConfig.apiKey,
                 baseUrl: fullConfig.baseUrl,
-                source: 'environment'
+                source: "environment",
               };
             }
           }
@@ -84,25 +97,27 @@ async function getEffectiveApiConfig() {
             return {
               key: fullConfig.apiKey,
               baseUrl: fullConfig.baseUrl,
-              source: 'environment'
+              source: "environment",
             };
           }
         }
       }
     } catch (error) {
-      console.error('获取环境变量配置失败:', error);
+      console.error("获取环境变量配置失败:", error);
     }
   } else {
     // 在服务器端环境中，直接使用环境变量
     const envConfigs = getEnvApiConfigs();
 
     // 如果有环境变量配置，优先使用第一个OpenAI类型的配置
-    const openaiEnvConfig = envConfigs.find(config => config.type === 'openai');
+    const openaiEnvConfig = envConfigs.find(
+      (config) => config.type === "openai"
+    );
     if (openaiEnvConfig) {
       return {
         key: openaiEnvConfig.apiKey,
         baseUrl: openaiEnvConfig.baseUrl,
-        source: 'environment'
+        source: "environment",
       };
     }
 
@@ -112,19 +127,9 @@ async function getEffectiveApiConfig() {
       return {
         key: firstConfig.apiKey,
         baseUrl: firstConfig.baseUrl,
-        source: 'environment'
+        source: "environment",
       };
     }
-  }
-
-  // 最后尝试本地存储配置
-  const localConfig = await storage.getApiConfig();
-  if (localConfig) {
-    return {
-      key: localConfig.key,
-      baseUrl: localConfig.baseUrl,
-      source: 'local'
-    };
   }
 
   return null;
@@ -132,18 +137,18 @@ async function getEffectiveApiConfig() {
 
 // 获取完整的环境变量配置（包含完整的API Key）
 async function getFullEnvConfig(type: string) {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     // 服务器端直接返回环境变量配置
     const envConfigs = getEnvApiConfigs();
-    return envConfigs.find(config => config.type === type) || null;
+    return envConfigs.find((config) => config.type === type) || null;
   }
 
   // 客户端需要通过API获取完整配置
   try {
-    const response = await fetch('/api/config/env-apis/full', {
-      method: 'POST',
+    const response = await fetch("/api/config/env-apis/full", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ type }),
     });
@@ -153,7 +158,7 @@ async function getFullEnvConfig(type: string) {
       return data.data || null;
     }
   } catch (error) {
-    console.error('获取完整环境变量配置失败:', error);
+    console.error("获取完整环境变量配置失败:", error);
   }
 
   return null;
@@ -175,7 +180,11 @@ export const api = {
     }
 
     // 添加配置来源的调试信息
-    console.log(`使用 ${config.source === 'environment' ? '环境变量' : '本地存储'} API 配置`);
+    console.log(
+      `使用 ${
+        config.source === "environment" ? "环境变量" : "本地存储"
+      } API 配置`
+    );
     console.log(`API 地址: ${config.baseUrl}`);
 
     // 根据模型类型构建不同的请求URL

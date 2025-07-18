@@ -37,13 +37,13 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
     const loadEnvConfigs = async () => {
       setLoadingEnvConfigs(true);
       try {
-        const response = await fetch('/api/config/env-apis');
+        const response = await fetch("/api/config/env-apis");
         if (response.ok) {
           const data = await response.json();
           setEnvConfigs(data.data.configs || []);
         }
       } catch (error) {
-        console.error('加载环境变量配置失败:', error);
+        console.error("加载环境变量配置失败:", error);
       } finally {
         setLoadingEnvConfigs(false);
       }
@@ -127,16 +127,21 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
               </div>
               <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded border border-blue-200">
                 <AlertCircle className="h-3 w-3 inline mr-1" />
-                环境变量配置会自动生效，无需手动设置。如果您手动配置了相同类型的API，手动配置将优先使用。
+                环境变量配置作为备用配置。如果您手动配置了API，手动配置将优先使用，环境变量配置将被忽略。
               </div>
             </div>
           )}
 
           {/* 手动配置部分 */}
           <div className="space-y-3">
-            <h3 className="text-sm font-medium text-gray-700">
-              手动配置 API
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-gray-700">
+                手动配置 API
+              </h3>
+              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                优先级最高
+              </span>
+            </div>
             <div className="space-y-2">
               <div>
                 <Input
